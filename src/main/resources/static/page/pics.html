@@ -5,6 +5,7 @@
     <title>图片</title>
 </head>
 <body>
+<h1 style="text-align: center"></h1>
 <select id="dirPath" placeholder="文件夹...">
     <option value="E:\private\pics">E:\private\pics</option>
     <option value="D:\private\pictures">D:\private\pictures</option>
@@ -20,6 +21,7 @@
 <link rel="stylesheet" type="text/css" href="/css/jquery-confirm.min.css">
 <script type="text/javascript">
     let outter = '0';
+    let timer;
     // 设置键盘翻页
     $(document).keyup(function(event){
         if (event.keyCode === 37) {
@@ -118,17 +120,23 @@
                 if (typeof(data.fileList) != "undefined") {
                     if (dir != null && dir !== '' && path != null && path !== '') {
                         for (let i = 0; i < data.fileList.length; i++) {
+                            res += '<div class="img-container"><div class="overlay">删除</div>'
                             res += '<img src="/' + dir + '/' + path + '/' + data.fileList[i] + '"/>';
+                            res += '</div>'
                         }
                     } else if (path != null && path !== '') {
                         for (let i = 0; i < data.fileList.length; i++) {
+                            res += '<div class="img-container"><div class="overlay">删除</div>'
                             res += '<img src="/' + path + '/' + data.fileList[i] + '"/>';
+                            res += '</div>'
                         }
-                    } else {
+                    }/* else {
                         for (let i = 0; i < data.fileList.length; i++) {
+                            res += '<div class="img-container"><div class="overlay">删除</div>'
                             res += '<img src="/' + data.fileList[i] + '"/>';
+                            res += '</div>'
                         }
-                    }
+                    } */
                 }
                 if (data.pre !== undefined && data.pre != null && data.pre !== '') {
                     res += '<a class="jump j-pre" data-j="./pics.html?path=' + encode(data.pre) + '&dir=' + encode(dir)
@@ -149,9 +157,7 @@
                     $('.name').addClass('dOut')
                     outter = '1'
                 }
-                $(".jump").click(function(){
-                    window.location.href = $(this).data('j');
-                });
+
                 $(".name").click(function(){
                     const subPath = $(this).data("p")
                     let rpath;
@@ -174,6 +180,8 @@
                         }
                     });
                 });
+
+                initCotent();
             },
             error: function (e) {
             }
@@ -184,6 +192,8 @@
         const val = encode($('#dirPath').val());
         getPathInfo(val, null, null)
     }
+
+    // 初始化页面
     $(function (){
         const params = new URLSearchParams(window.location.search);
         const path = encode(params.get('path'));
@@ -197,11 +207,96 @@
             rootPath = "E:\\private\\pics";
         }
         if (path != null && path !== '') {
+            $('h1').html(path);
             $('title').html(path);
+        } else {
+            $('h1').html(dir);
         }
         $('#dirPath').on('change', openDir);
         getPathInfo(rootPath, dir, path);
     })
+
+    // 页面内容加载后的方法
+    function initCotent(){
+        $(".jump").click(function(){
+            window.location.href = $(this).data('j');
+        });
+
+        // 长按图片能删除图片
+        $('.img-container').on('mousedown', function (){
+            const t = $(this);
+            timer = setTimeout(function (){
+                t.find('.overlay').fadeIn(10);
+            }, 700)
+        });
+
+        $('.img-container').on('mouseup', function (){
+            const t = $(this);
+            if ($(this).find('.overlay').is(':visible')) {
+                setTimeout(function () {
+                    t.find('.overlay').fadeOut(10);
+                }, 2300)
+            }
+            clearTimeout(timer);
+        })
+
+        $('.img-container').on('touchstart', function (){
+            const t = $(this);
+            timer = setTimeout(function (){
+                t.find('.overlay').fadeIn(10);
+            }, 700)
+        });
+
+        $('.img-container').on('touchend', function (){
+            const t = $(this);
+            if ($(this).find('.overlay').is(':visible')) {
+                setTimeout(function () {
+                    t.find('.overlay').fadeOut(10);
+                }, 2300)
+            }
+            clearTimeout(timer);
+        });
+
+        // 删除图片
+        $('.overlay').on('click', function (){
+            const src = encode($(this).next().attr('src'));
+            const t = $(this);
+            $.confirm({
+                title: '删除',
+                content: '确认删除该图片!',
+                boxWidth: '400px',
+                useBootstrap: false,
+                onOpenBefore: function () {
+                    if (outter === '1') {
+                        $('.jconfirm-box').css('width', '80%');
+                        $('.jconfirm-buttons').css('width', '90%')
+                        $('.jconfirm-buttons button').css('width', '45%').css('height', '70px')
+                    }
+                },
+                buttons: {
+                    '确认': function () {
+                        const params = new URLSearchParams(window.location.search);
+                        let rootPath = encode(params.get('rootPath'));
+                        $.ajax({
+                            type: "GET",
+                            contentType: "application/json",
+                            url: "/comic/deletePic",
+                            data: {rootPath: rootPath, loc: src},
+                            dataType: 'json',
+                            success: function (data) {
+                                t.parent().remove();
+                            },
+                            error: function (e) {
+                            }
+                        });
+                    },
+                    '取消': function () {
+
+                    }
+                }
+            });
+        });
+    }
 
     // 再页面卸载时记录滚动位置
     $(window).on('beforeunload', function (){
@@ -210,5 +305,6 @@
         // 将滚动位置存储到localStorage
         localStorage.setItem('scrollPosition', scrollPosition)
     })
+
 </script>
 </html>

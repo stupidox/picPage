@@ -108,7 +108,8 @@ public class PicController {
     }
 
     @GetMapping("/deleteDir")
-    public Map<String, Object> deleteDir(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String path, @RequestParam String dir) {
+    public Map<String, Object> deleteDir(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String path,
+                                         @RequestParam String dir) {
         String finalRootPath = Constants.decode(rootPath);
         String finalPath = Constants.decode(path);
         String finalDir = Constants.decode(dir);
@@ -117,6 +118,21 @@ public class PicController {
         Path directoryPath = Paths.get(file.getAbsolutePath());
         try {
             deleteDirectory(directoryPath);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return map;
+    }
+
+    @GetMapping("/deletePic")
+    public Map<String, Object> deletePic(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String loc) {
+        String finalRootPath = Constants.decode(rootPath);
+        String finalLoc = Constants.decode(loc);
+        Map<String, Object> map = new HashMap<>();
+        File file = new File(finalRootPath + File.separator + finalLoc);
+        Path picPath = Paths.get(file.getAbsolutePath());
+        try {
+            Files.delete(picPath);
         } catch (IOException e) {
             e.printStackTrace();
         }

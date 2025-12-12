@@ -1,1 +1,37 @@
+# Maven/Gradle构建产物
 target/
+build/
+dist/
+out/
+
+# IDE配置（IDEA/Eclipse）
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+.factorypath
+
+# 日志文件
+*.log
+logs/
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+.DS_Store
+
+# 数据库相关敏感配置
+*.local.xml
+*.properties.bak
+# 如果有本地配置文件（如application-local.yml），也忽略
+application-local.yml
+application-local.properties
+
+# JAR包（除非项目需要提交特定JAR，否则忽略）
+*.jar
+*.war
+*.ear

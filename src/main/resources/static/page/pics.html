@@ -77,6 +77,52 @@
         });
     }
 
+    // 移动到000下最后一个文件夹后
+    function moveDir() {
+        $.confirm({
+            title: '一定',
+            content: '确认移动该目录下的所有文件!',
+            boxWidth: '400px',
+            useBootstrap: false,
+            onOpenBefore: function () {
+                if (outter === '1') {
+                    $('.jconfirm-box').css('width', '80%');
+                    $('.jconfirm-buttons').css('width', '90%')
+                    $('.jconfirm-buttons button').css('width', '45%').css('height', '70px')
+                }
+            },
+            buttons: {
+                '确认': function () {
+                    const params = new URLSearchParams(window.location.search);
+                    const path = encode(params.get('path'));
+                    const dir = encode(params.get('dir'));
+                    let rootPath = encode(params.get('rootPath'));
+                    $.ajax({
+                        type: "GET",
+                        contentType: "application/json",
+                        url: "/comic/moveDir",
+                        data: {path: path, dir: dir, rootPath: rootPath},
+                        dataType: 'json',
+                        success: function (data) {
+                            if ($('.j-next').length > 0) {
+                                $('.j-next').get(0).click()
+                            } else if ($('.j-pre').length > 0) {
+                                $('.j-pre').get(0).click()
+                            } else {
+                                $('#goDir').get(0).click()
+                            }
+                        },
+                        error: function (e) {
+                        }
+                    });
+                },
+                '取消': function () {
+
+                }
+            }
+        });
+    }
+
     function getPathInfo(rootPath, dir, path) {
         $.ajax({
             type: "GET",
@@ -99,8 +145,12 @@
                     res += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=&rootPath=' + encode(rootPath)
                     res += '&dir=">目录</a>';
                 }
+                // 000同级目录下可移动
+                if (typeof(data.fileList) != "undefined" && data.fName === '000') {
+                    res += '<div><a id="moveDir" href="javascript:void(0)" onclick="moveDir()" >移动</a></div>';
+                }
                 res += '<div><a id="delDir" href="javascript:void(0)" onclick="deleteDir()" >删除</a></div>'
-                res += '</div>'
+                res += '</div>';
                 let dirInfo = '';
                 if (data.pre !== undefined && data.pre != null && data.pre !== '') {
                     dirInfo += '<a class="jump j-pre" data-j="./pics.html?path=' + encode(data.pre) + '&dir=' + encode(dir) +
@@ -152,6 +202,7 @@
                     $('img').addClass('picOut');
                     $('#goDir').addClass('aOut');
                     $('#delDir').addClass('aOut');
+                    $('#moveDir').addClass('aOut');
                     $('#dirPath').addClass('selectOut');
                     $('.button').addClass('buttonOut');
                     $('.name').addClass('dOut')

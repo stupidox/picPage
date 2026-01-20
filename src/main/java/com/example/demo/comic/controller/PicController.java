@@ -2,7 +2,10 @@ package com.example.demo.comic.controller;
 
 import com.example.demo.config.Constants;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
 import java.io.File;
@@ -88,6 +91,11 @@ public class PicController {
             if (j + 1 < pDir.size()) {
                 map.put("next", pDir.get(j + 1).getName());
             }
+
+            // moveDir使用字段
+            if (pDir.size() > 0) {
+                map.put("fName", pDir.get(0).getName());
+            }
         }
 
         map.put("out", Constants.getIpAddress(request).equals("0:0:0:0:0:0:0:1") || Constants.getIpAddress(request).equals("127.0.0.1")
@@ -136,6 +144,25 @@ public class PicController {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return map;
+    }
+
+    @GetMapping("/moveDir")
+    public Map<String, Object> moveDir(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String path,
+                                       @RequestParam String dir) {
+        String finalRootPath = Constants.decode(rootPath);
+        String finalPath = Constants.decode(path);
+        String finalDir = Constants.decode(dir);
+        Map<String, Object> map = new HashMap<>();
+        File newDirDest = new File(finalRootPath + File.separator + finalDir + File.separator + "000");
+        File originFile = new File(finalRootPath + File.separator + finalDir + File.separator + finalPath);
+
+        // 移到同级目录的000下
+        List<File> list = Arrays.asList(newDirDest.listFiles());
+        list.sort(Comparator.comparing(File::getName));
+        File lastFile = list.get(list.size() - 1);
+        File newDir = new File(lastFile.getParent(), String.format("%03d", Integer.parseInt(lastFile.getName()) + 1));
+        originFile.renameTo(newDir);
         return map;
     }
 

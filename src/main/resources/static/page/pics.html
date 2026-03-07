@@ -13,6 +13,7 @@
 </select>
 <div id="dirList"></div>
 <div id="picList"></div>
+<div id="dirList2"></div>
 </body>
 <script type="text/javascript" src="/js/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="/js/common.js"></script>
@@ -30,6 +31,13 @@
             $(".next").click();
         }
     });
+
+    // 反向排序img
+    function reversePics() {
+        $('#picList').append(
+            $('#picList .img-container').get().reverse()
+        );
+    }
 
     // 删除次目录下的所有文件
     function deleteDir() {
@@ -134,24 +142,29 @@
                 let res = '';
                 let parentName = getParentName(dir);
                 let pParentPath = getPParentPath(dir);
-                res += '<div class="follow-div">'
+                let dirInfo = '';
+
+                dirInfo += '<div class="follow-div">'
                 if (dir != null && dir !== '' && parentName !== pParentPath) {
-                    res += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=' + encode(parentName) + '&rootPath=' + encode(rootPath)
-                    res += '&dir=' + encode(pParentPath) + '">目录</a>';
+                    dirInfo += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=' + encode(parentName) + '&rootPath=' + encode(rootPath)
+                    dirInfo += '&dir=' + encode(pParentPath) + '">目录</a>';
                 } else if (dir != null && dir !== '' && parentName === pParentPath){
-                    res += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=' + encode(parentName) + '&rootPath=' + encode(rootPath)
-                    res += '&dir=">目录</a>';
+                    dirInfo += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=' + encode(parentName) + '&rootPath=' + encode(rootPath)
+                    dirInfo += '&dir=">目录</a>';
                 } else {
-                    res += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=&rootPath=' + encode(rootPath)
-                    res += '&dir=">目录</a>';
+                    dirInfo += '<a id="goDir" lastPage="' + path + '" href="./pics.html?path=&rootPath=' + encode(rootPath)
+                    dirInfo += '&dir=">目录</a>';
+                }
+                // 图片倒序排列
+                if (typeof(data.fileList) != "undefined") {
+                    dirInfo += '<div><a id="reversePics" href="javascript:void(0)" onclick="reversePics()" >倒序</a></div>';
                 }
                 // 000同级目录下可移动
                 if (typeof(data.fileList) != "undefined" && data.fName === '000') {
-                    res += '<div><a id="moveDir" href="javascript:void(0)" onclick="moveDir()" >移动</a></div>';
+                    dirInfo += '<div><a id="moveDir" href="javascript:void(0)" onclick="moveDir()" >移动</a></div>';
                 }
-                res += '<div><a id="delDir" href="javascript:void(0)" onclick="deleteDir()" >删除</a></div>'
-                res += '</div>';
-                let dirInfo = '';
+                dirInfo += '<div><a id="delDir" href="javascript:void(0)" onclick="deleteDir()" >删除</a></div>'
+                dirInfo += '</div>';
                 if (data.pre !== undefined && data.pre != null && data.pre !== '') {
                     dirInfo += '<a class="jump j-pre" data-j="./pics.html?path=' + encode(data.pre) + '&dir=' + encode(dir) +
                         '&rootPath='+ encode(rootPath) + '"><button class="button mid pre">上一章</button></a>'
@@ -188,20 +201,22 @@
                         }
                     } */
                 }
+                $('#picList').html(res);
+                dirInfo = '';
                 if (data.pre !== undefined && data.pre != null && data.pre !== '') {
-                    res += '<a class="jump j-pre" data-j="./pics.html?path=' + encode(data.pre) + '&dir=' + encode(dir)
+                    dirInfo += '<a class="jump j-pre" data-j="./pics.html?path=' + encode(data.pre) + '&dir=' + encode(dir)
                         +'&rootPath=' + encode(rootPath) + '"><button class="button mid">上一章</button></a>'
                 }
                 if (data.next !== undefined && data.next != null && data.next !== '') {
-                    res += '<a class="jump j-next" data-j="./pics.html?path=' + encode(data.next) + '&dir=' + encode(dir)
+                    dirInfo += '<a class="jump j-next" data-j="./pics.html?path=' + encode(data.next) + '&dir=' + encode(dir)
                         +'&rootPath='+ encode(rootPath) + '"><button class="button mid">下一章</button></a>'
                 }
-                $('#picList').html(res);
-
+                $('#dirList2').html(dirInfo);
                 if (data.out === '1') {
                     $('img').addClass('picOut');
                     $('#goDir').addClass('aOut');
                     $('#delDir').addClass('aOut');
+                    $('#reversePics').addClass('aOut');
                     $('#moveDir').addClass('aOut');
                     $('#dirPath').addClass('selectOut');
                     $('.button').addClass('buttonOut');
@@ -238,6 +253,7 @@
             }
         });
     }
+
     // 目录切换
     function openDir() {
         const val = encode($('#dirPath').val());

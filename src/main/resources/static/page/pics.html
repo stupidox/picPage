@@ -131,6 +131,8 @@
         });
     }
 
+    let currentRequestId = 0; // 任务令牌，点击按钮后停止加载img
+
     function getPathInfo(rootPath, dir, path) {
         $.ajax({
             type: "GET",
@@ -139,7 +141,6 @@
             data: {path: path, dir: dir, rootPath: rootPath},
             dataType: 'json',
             success: function (data) {
-                let res = '';
                 let parentName = getParentName(dir);
                 let pParentPath = getPParentPath(dir);
                 let dirInfo = '';
@@ -174,34 +175,169 @@
                         '&rootPath='+ encode(rootPath) + '"><button class="button mid next">下一章</button></a>'
                 }
                 if (typeof(data.dirList) != "undefined") {
+                    // 目录列表
                     for (let i = 0; i < data.dirList.length; i++) {
                         dirInfo += '<a class="name" href="javascript:void(0)" data-p="' + data.dirList[i] + '">'
                             + data.dirList[i] + '</a><div style="next"></div>';
                     }
                 }
                 $('#dirList').html(dirInfo);
+
+                // 加载图片
                 if (typeof(data.fileList) != "undefined") {
-                    if (dir != null && dir !== '' && path != null && path !== '') {
-                        for (let i = 0; i < data.fileList.length; i++) {
-                            res += '<div class="img-container"><div class="overlay">删除</div>'
-                            res += '<img src="/' + dir + '/' + path + '/' + data.fileList[i] + '"/>';
-                            res += '</div>'
+                    let allPaths = data.fileList;
+                    let batchIndex = 0;
+                    let batchSize = 6;
+                    let isLoading = false;
+
+                    // 【删除】不再需要全局的 loadedImagesCache 和 nextRenderIndex
+                    // 因为每批次的缓存和渲染状态应该是独立的，或者我们可以用一个全局大缓存，但渲染指针局部化。
+                    // 为了最简单且不出错，我们保留一个全局的大缓存对象，但渲染指针局部化。
+                    let globalImageCache = {};
+
+                    function loadBatch() {
+                        // 【关键】每次启动新批次（无论是初始化还是递归），都记录当前的“任务快照ID”
+                        // 注意：这里不要 ++currentRequestId，而是读取当前的值赋给局部变量
+                        // 因为一个完整的页面加载过程（多批次）应该共享同一个 ID，直到用户手动切换
+                        const myRequestId = currentRequestId;
+
+                        if (batchIndex >= allPaths.length || isLoading) {
+                            return;
                         }
-                    } else if (path != null && path !== '') {
-                        for (let i = 0; i < data.fileList.length; i++) {
-                            res += '<div class="img-container"><div class="overlay">删除</div>'
-                            res += '<img src="/' + path + '/' + data.fileList[i] + '"/>';
-                            res += '</div>'
+
+                        isLoading = true;
+                        let currentBatch = allPaths.slice(batchIndex, batchIndex + batchSize);
+                        let loadedCount = 0;
+                        const totalInThisBatch = currentBatch.length;
+
+                        if (totalInThisBatch === 0) {
+                            isLoading = false;
+                            return;
                         }
-                    }/* else {
-                        for (let i = 0; i < data.fileList.length; i++) {
-                            res += '<div class="img-container"><div class="overlay">删除</div>'
-                            res += '<img src="/' + data.fileList[i] + '"/>';
-                            res += '</div>'
+
+                        // 【关键修改 1】：在当前批次内，定义“下一个要渲染的全局索引”
+                        // 它初始化为当前批次的起始索引 (batchIndex)
+                        let nextRenderIndex = batchIndex;
+
+                        // 【新增】按顺序渲染的辅助函数
+                        // 【关键修改 2】：定义 renderInOrder 在 loadBatch 内部，让它能访问局部的 nextRenderIndex
+                        function renderInOrder() {
+                            const picList = document.getElementById('picList');
+
+                            // 循环检查：只要全局缓存里有 nextRenderIndex 对应的数据，就插入
+                            while (globalImageCache.hasOwnProperty(nextRenderIndex)) {
+                                const item = globalImageCache[nextRenderIndex];
+
+                                if (item) {
+                                    picList.appendChild(item);
+                                }
+
+                                // 处理完这个索引，清理缓存，指针后移
+                                delete globalImageCache[nextRenderIndex];
+                                nextRenderIndex++;
+                            }
+
+                            // 可选：如果这一批全部渲染完了，且是最后一批，可以触发 initCotent
+                            // 这里的逻辑可以根据你的需求微调
                         }
-                    } */
+
+                        // 获取当前页面的 origin，用于构建绝对路径，防止相对路径解析歧义
+                        const pageOrigin = window.location.origin;
+
+                        currentBatch.forEach(function(picPath, index) {
+                            // 【关键修改 3】：计算全局绝对索引
+                            const globalIndex = batchIndex + index;
+
+                            let img = new Image();
+
+                            // --- 路径构建 (保持不变) ---
+                            let currentDir = (typeof dir !== 'undefined' && dir) ? dir : '';
+                            let currentPath = (typeof path !== 'undefined' && path) ? path : '';
+                            let relativePath = '';
+                            if (currentDir && currentPath) {
+                                relativePath = '/' + currentDir + '/' + currentPath + '/' + picPath;
+                            } else if (currentPath) {
+                                relativePath = '/' + currentPath + '/' + picPath;
+                            } else {
+                                relativePath = '/' + picPath;
+                            }
+                            // 确保路径以 / 开头，然后拼接 origin 变成绝对路径
+                            // 例如：http://localhost:8080/images/1.jpg
+                            // 绝对路径能避免浏览器对相对路径的多次解析尝试
+                            let fullPath = relativePath.startsWith('/') ? (pageOrigin + relativePath) : (pageOrigin + '/' + relativePath);
+                            // 去除可能出现的双斜杠 (如 http://...//images)
+                            fullPath = fullPath.replace(/([^:]\/)\/+/g, "$1");
+
+                            // --- 2. 定义处理函数 (带指纹锁) ---
+                            // 使用 fullPath 作为指纹，确保即使函数被调用多次，也是针对同一个资源
+                            const processImage = function(status) {
+                                // 【🛑 核心拦截点】
+                                // 如果当前的全局 ID 变了，说明用户点了下一页/切换目录
+                                // 此时直接返回，不执行任何渲染、缓存、计数逻辑
+                                if (myRequestId !== currentRequestId) {
+                                    return;
+                                }
+
+                                // 【指纹锁】检查是否已经处理过这个特定的 img 对象
+                                if (img._processed) return;
+                                img._processed = true;
+
+                                if (status === 'load') {
+                                    // 避免使用对资源类型对象使用包装
+                                    // let $img = $(img); $img.addClass(...); $container.append($img);
+                                    // jquery包装img，造成图片2次请求
+                                    // 只有当图片已经存在于 HTML 中，或者已经通过上面的步骤成功插入到页面后
+                                    // 再去 $('img') 选中它做动画、事件绑定等操作，才是安全的。
+                                    const container = document.createElement('div');
+                                    container.className = 'img-container';
+                                    const overlay = document.createElement('div');
+                                    overlay.className = 'overlay';
+                                    overlay.textContent = '删除';
+                                    container.appendChild(overlay);
+
+                                    if (data.out === '1') {
+                                        img.classList.add('picOut');
+                                    }
+                                    container.appendChild(img);
+
+                                    // 【关键修改 4】：存入全局缓存，Key 是 globalIndex
+                                    globalImageCache[globalIndex] = container;
+                                } else {
+                                    console.warn('图片加载失败:', picPath);
+                                    globalImageCache[globalIndex] = null; // 占位
+                                }
+
+                                loadedCount++;
+
+                                // 当本批次所有图片都尝试加载完毕后，尝试渲染
+                                if (loadedCount === totalInThisBatch) {
+                                    // 再次检查，防止最后一张图加载完时用户刚好切换了
+                                    if (myRequestId !== currentRequestId) return;
+
+                                    renderInOrder(); // 调用内部的 renderInOrder，它会自动处理局部变量 nextRenderIndex
+
+                                    isLoading = false;
+                                    batchIndex += batchSize;
+
+                                    if (batchIndex < allPaths.length) {
+                                        setTimeout(loadBatch, 50);
+                                    } else {
+                                        // 所有批次都结束了
+                                        initCotent();
+                                    }
+                                }
+                            };
+
+                            img.onload = function() { processImage('load'); };
+                            img.onerror = function() { processImage('error'); };
+                            img.src = fullPath;
+                        });
+                    }
+
+                    // 启动
+                    loadBatch();
                 }
-                $('#picList').html(res);
+
                 dirInfo = '';
                 if (data.pre !== undefined && data.pre != null && data.pre !== '') {
                     dirInfo += '<a class="jump j-pre" data-j="./pics.html?path=' + encode(data.pre) + '&dir=' + encode(dir)
@@ -213,7 +349,6 @@
                 }
                 $('#dirList2').html(dirInfo);
                 if (data.out === '1') {
-                    $('img').addClass('picOut');
                     $('#goDir').addClass('aOut');
                     $('#delDir').addClass('aOut');
                     $('#reversePics').addClass('aOut');
@@ -223,6 +358,14 @@
                     $('.name').addClass('dOut')
                     outter = '1'
                 }
+
+                $(".jump").click(function(){
+                    // 1. 【🛑 立即让旧任务失效】
+                    // 只要这个值变了，上面所有正在加载的 img 的回调都会发现 ID 不匹配，从而自动停止工作
+                    currentRequestId++;
+
+                    window.location.href = $(this).data('j');
+                });
 
                 $(".name").click(function(){
                     const subPath = $(this).data("p")
@@ -247,7 +390,6 @@
                     });
                 });
 
-                initCotent();
             },
             error: function (e) {
             }
@@ -256,6 +398,10 @@
 
     // 目录切换
     function openDir() {
+        // 1. 【🛑 立即让旧任务失效】
+        // 只要这个值变了，上面所有正在加载的 img 的回调都会发现 ID 不匹配，从而自动停止工作
+        currentRequestId++;
+
         const val = encode($('#dirPath').val());
         getPathInfo(val, null, null)
     }
@@ -285,10 +431,6 @@
 
     // 页面内容加载后的方法
     function initCotent(){
-        $(".jump").click(function(){
-            window.location.href = $(this).data('j');
-        });
-
         // 长按图片能删除图片
         $('.img-container').on('mousedown', function (){
             const t = $(this);

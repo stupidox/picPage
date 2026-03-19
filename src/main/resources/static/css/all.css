@@ -40,6 +40,7 @@ a {
 
 img {
     width: 810px;
+    height: auto;      /* 【关键修复】保持原图比例，高度自动计算 */
     clear: both;
     display: block;
     margin: auto;

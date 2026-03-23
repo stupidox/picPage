@@ -4,10 +4,10 @@ import com.example.demo.config.Constants;
 import com.example.demo.utils.spring.StaticResourceProperties;
 import com.example.demo.utils.webp.WebpConverter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -50,7 +50,7 @@ public class WebpInterceptor implements HandlerInterceptor {
 
         // 3. 检查浏览器是否支持 WebP
         String acceptHeader = request.getHeader("Accept");
-        boolean supportWebp = (StringUtils.hasLength(acceptHeader) && acceptHeader.contains("image/webp"));
+        boolean supportWebp = (!StringUtils.isBlank(acceptHeader) && acceptHeader.contains("image/webp"));
 
         if (!supportWebp) {
             return true; // 浏览器不支持，放行返回原图

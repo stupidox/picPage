@@ -2,7 +2,7 @@ package com.example.demo.comic.controller;
 
 import com.example.demo.config.Constants;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.util.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -47,9 +47,9 @@ public class PicController {
         String finalDir = Constants.decode(dir);
         Map<String, Object> map = new HashMap<>();
         File d;
-        if (StringUtils.hasLength(finalPath)) {
+        if (!StringUtils.isBlank(finalPath)) {
             d = new File(finalRootPath + File.separator + finalDir + File.separator + finalPath);
-        } else if (StringUtils.hasLength(finalDir)) {
+        } else if (!StringUtils.isBlank(finalDir)) {
             d = new File(finalRootPath + File.separator + finalDir);
         } else {
             d = new File(finalRootPath);
@@ -183,7 +183,7 @@ public class PicController {
         dir = Constants.decode(dir);
         Map<String, Object> map = new HashMap<>();
         map.put("path", path);
-        map.put("dir", StringUtils.hasLength(dir) ? dir : "");
+        map.put("dir", !StringUtils.isBlank(dir) ? dir : "");
         return map;
     }
 
@@ -204,16 +204,16 @@ public class PicController {
             // 去掉特殊字符
             o1 = removeSpecialStr(o1).toLowerCase(Locale.ROOT);
             o2 = removeSpecialStr(o2).toLowerCase(Locale.ROOT);
-            while (StringUtils.hasLength(o1) && StringUtils.hasLength(o2)) {
+            while (!StringUtils.isBlank(o1) && !StringUtils.isBlank(o2)) {
                 // 去掉非数字开始的、共同的首字符串
                 int prefixIndex = prefixIndex(o1, o2);
                 o1 = removeSuffix(o1.substring(prefixIndex));
                 o2 = removeSuffix(o2.substring(prefixIndex));
                 // 保护代码，防止处理后的字符串出现空字符的情况
-                if (!StringUtils.hasLength(o1) && StringUtils.hasLength(o2)) {
+                if (StringUtils.isBlank(o1) && !StringUtils.isBlank(o2)) {
                     return 1;
                 }
-                if (StringUtils.hasLength(o1) && !StringUtils.hasLength(o2)) {
+                if (!StringUtils.isBlank(o1) && StringUtils.isBlank(o2)) {
                     return 0;
                 }
                 // 按照数字类型比较
@@ -233,7 +233,7 @@ public class PicController {
                 // 获取字符串首的数字字符串
                 String numStr1 = getQuantity(o1);
                 String numStr2 = getQuantity(o2);
-                if (StringUtils.hasLength(numStr1) && StringUtils.hasLength(numStr2)) {
+                if (!StringUtils.isBlank(numStr1) && !StringUtils.isBlank(numStr2)) {
                     // System.out.print("按照首位数字比较");
                     int result = new BigDecimal(numStr1).compareTo(new BigDecimal(numStr2));
                     if (result > 0) {
@@ -243,7 +243,7 @@ public class PicController {
                         return -1;
                     }
                 }
-                if (StringUtils.hasLength(numStr1) && StringUtils.hasLength(numStr2)) {
+                if (!StringUtils.isBlank(numStr1) && !StringUtils.isBlank(numStr2)) {
                     o1 = o1.substring(numStr1.length());
                     o2 = o2.substring(numStr2.length());
                 } else {
@@ -301,7 +301,7 @@ public class PicController {
      * @return 无后缀的文件名
      */
     private String removeSuffix(String str) {
-        if (!StringUtils.hasLength(str)) {
+        if (StringUtils.isBlank(str)) {
             return "";
         }
         int lastIndex = str.lastIndexOf(".");

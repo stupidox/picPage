@@ -1,8 +1,10 @@
 <configuration scan="true" scanPeriod="30 seconds">
 
     <!-- 定义颜色变量 -->
+    <!-- 取消颜色
     <property name="LOG_PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n"/>
-
+    -->
+    <property name="LOG_PATTERN" value="%d{HH:mm:ss.SSS} %-5level [%thread] %logger{36} - %msg%n"/>
     <!-- 控制台输出 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

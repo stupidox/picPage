@@ -1,6 +1,7 @@
 package com.example.demo.config;
 
-import org.springframework.util.StringUtils;
+
+import org.apache.commons.lang3.StringUtils;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.regex.Matcher;
@@ -9,7 +10,7 @@ import java.util.regex.Pattern;
 public class Constants {
 
     public static String decode(String str) {
-        if (!StringUtils.hasLength(str)) {
+        if (StringUtils.isBlank(str)) {
             return "";
         }
         return str.replaceAll("%2f", "\\\\").replaceAll("%5B", "[").replaceAll("%5D", "]").replaceAll("%2B", "+")

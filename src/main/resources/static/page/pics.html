@@ -15,250 +15,475 @@
     <div id="picList"></div>
     <div id="dirList2"></div>
 </body>
-<script type="text/javascript" src="/js/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="/js/common.js"></script>
-<script type="text/javascript" src="/js/jquery/jquery-confirm.min.js"></script>
 <link rel="stylesheet" type="text/css" href="/css/all.css">
-<link rel="stylesheet" type="text/css" href="/css/jquery-confirm.min.css">
+<!-- 之前 (CDN) -->
+<!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"> -->
+<!-- <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> -->
+
+<!-- 现在 (本地) -->
+<link rel="stylesheet" href="/css/sweetalert2/sweetalert2.min.css">
+<script type="text/javascript" src="/js/sweetalert2/sweetalert2.js"></script>
+
+<!-- 模板：定义好结构，数据用占位符 (或者留空让 JS 填) -->
+<!-- 注意：template 里的内容浏览器不会显示，也不会执行里面的脚本 -->
+<!-- dirList内容 -->
+<template id="tpl-dir-link">
+    <div class="follow-div">
+        <!-- 这里先写死结构，id 可以不要，因为克隆后会有新的 -->
+        <a class="btn-go-dir" lastPage="">目录</a>
+        <!-- 动态区域：倒序 -->
+        <div>
+            <a class="btn-reverse-pics">倒序</a>
+        </div>
+        <!-- 动态区域：移动 -->
+        <div>
+            <a class="btn-move-dir" >移动</a>
+        </div>
+        <div>
+            <a class="btn-del-dir">删除</a>
+        </div>
+    </div>
+    <a class="a-j-pre"><button class="bt-j-pre">上一章</button></a>
+    <a class="a-j-next"><button class="bt-j-next">下一章</button></a>
+</template>
+<template id="tpl-dir2-link">
+    <a class="a-j-pre"><button class="bt-j-pre">上一章</button></a>
+    <a class="a-j-next"><button class="bt-j-next">下一章</button></a>
+</template>
 <script type="text/javascript">
     let outter = '0';
     let timer;
+    let currentRequestId = 0; // 任务令牌，点击按钮后停止加载img
+    let canDown = true;
+    let canUp = false;
     // 设置键盘翻页
-    $(document).keyup(function(event){
-        if (event.keyCode === 37) {
-            $(".pre").click();
-        } else if (event.keyCode === 39) {
-            $(".next").click();
+    document.addEventListener('keyup', function (event) {
+        if (event.code === '37') {
+            const btn = document.querySelector('.pre');
+            if (btn) {
+                btn.click();
+            }
+        } else if (event.code === '39') {
+            const btn = document.querySelector('.next');
+            if (btn) {
+                btn.click();
+            }
         }
     });
 
     // 反向排序img
-    function reversePics() {
-        $('#picList').append(
-            $('#picList .img-container').get().reverse()
-        );
+    function reversePics(e, target) {
+        const picList = document.getElementById('picList');
+        if (picList) {
+            // 1. 获取所有 .img-container 元素 (返回的是 HTMLCollection，需转为数组)
+            const items = Array.from(picList.querySelectorAll('.img-container'));
+
+            // 2. 反转数组
+            items.reverse();
+
+            // 3. 重新追加 (DOM 特性：appendChild 已存在的元素会将其移动到新位置)
+            items.forEach(item => {
+                picList.appendChild(item);
+            });
+        }
     }
 
     // 删除次目录下的所有文件
-    function deleteDir() {
-        $.confirm({
+    function delDir(e, target) {
+        Swal.fire({
             title: '删除',
-            content: '确认删除该目录下的所有文件!',
-            boxWidth: '400px',
-            useBootstrap: false,
-            onOpenBefore: function () {
-                if (outter === '1') {
-                    $('.jconfirm-box').css('width', '80%');
-                    $('.jconfirm-buttons').css('width', '90%')
-                    $('.jconfirm-buttons button').css('width', '45%').css('height', '70px')
-                }
-            },
-            buttons: {
-                '确认': function () {
-                    const params = new URLSearchParams(window.location.search);
-                    const path = encode(params.get('path'));
-                    const dir = encode(params.get('dir'));
-                    let rootPath = encode(params.get('rootPath'));
-                    $.ajax({
-                        type: "GET",
-                        contentType: "application/json",
-                        url: "/comic/deleteDir",
-                        data: {path: path, dir: dir, rootPath: rootPath},
-                        dataType: 'json',
-                        success: function (data) {
-                            if ($('.j-next').length > 0) {
-                                $('.j-next').get(0).click()
-                            } else if ($('.j-pre').length > 0) {
-                                $('.j-pre').get(0).click()
-                            } else {
-                                $('#goDir').get(0).click()
-                            }
-                        },
-                        error: function (e) {
-                        }
-                    });
-                },
-                '取消': function () {
+            text: '确认删除该目录下的所有文件!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '确认',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#d33',
 
-                }
+            // 核心变化：动态设置样式
+            // 如果 outter 为 '1'，应用自定义宽类名；否则使用默认
+            // customClass: {
+            //     popup: outter === '1' ? 'swal-wide-popup' : ''
+            // },
+
+            // 如果需要完全通过 JS 控制宽度而不想写 CSS 类，也可以用 width 选项，但 customClass 更灵活
+            width: outter === '1' ? '80%' : undefined,
+
+            preConfirm: () => {
+                // 获取 URL 参数
+                const params = new URLSearchParams(window.location.search);
+
+                const path = encode(params.get('path'));
+                const dir = encode(params.get('dir'));
+                let rootPath = encode(params.get('rootPath'));
+
+                // 使用原生 fetch 替代 $.ajax
+                return fetch(`/comic/deleteDir?path=${path}&dir=${dir}&rootPath=${rootPath}`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('网络响应不正常');
+                            }
+                            return response.json();
+                        })
+                        .then(async(data) => {
+                            // 成功回调逻辑
+                            // 模拟原代码的按钮点击逻辑
+                            if (document.querySelectorAll('.j-next').length > 0) {
+                                const el = document.querySelector('.j-next');
+                                const rootPath = encode(el.dataset.rootPath);
+                                const dir = encode(el.dataset.dir);
+                                const path = encode(el.dataset.path);
+
+                                const data = await getPathInfo(rootPath, dir, path);
+                                repalceState(data, rootPath, dir, path);
+                            } else if (document.querySelectorAll('.j-pre').length > 0) {
+                                const el = document.querySelector('.j-pre');
+                                const rootPath = encode(el.dataset.rootPath);
+                                const dir = encode(el.dataset.dir);
+                                const path = encode(el.dataset.path);
+
+                                const data = await getPathInfo(rootPath, dir, path);
+                                repalceState(data, rootPath, dir, path);
+                            } else {
+                                const el = document.getElementById('goDir');
+                                const rootPath = encode(el.dataset.rootPath);
+                                const dir = encode(el.dataset.dir);
+                                const path = encode(el.dataset.path);
+
+                                const data = await getPathInfo(rootPath, dir, path);
+                                repalceState(data, rootPath, dir, path);
+                            }
+
+                            return data; // 将数据传递下去（如果需要）
+                        })
+                        .catch(error => {
+                            console.error('删除失败:', error);
+                            Swal.showValidationMessage(`请求失败: ${error.message}`);
+                        });
+            }
+        }).then((result) => {
+            // result.isConfirmed 为 true 表示用户点击了“确认”且 preConfirm 成功 resolve
+            // 如果 preConfirm 中 throw 了 error 或用户点击取消，这里不会执行成功逻辑
+            if (result.isConfirmed) {
+                // 如果需要在这里做额外的成功提示，可以取消注释
+                // Swal.fire('删除成功', '', 'success');
+                // 注意：原代码是在 success 回调里直接触发了翻页按钮，没有额外弹窗，所以这里通常留空
             }
         });
     }
 
     // 移动到000下最后一个文件夹后
-    function moveDir() {
-        $.confirm({
-            title: '一定',
-            content: '确认移动该目录下的所有文件!',
-            boxWidth: '400px',
-            useBootstrap: false,
-            onOpenBefore: function () {
-                if (outter === '1') {
-                    $('.jconfirm-box').css('width', '80%');
-                    $('.jconfirm-buttons').css('width', '90%')
-                    $('.jconfirm-buttons button').css('width', '45%').css('height', '70px')
-                }
-            },
-            buttons: {
-                '确认': function () {
-                    const params = new URLSearchParams(window.location.search);
-                    const path = encode(params.get('path'));
-                    const dir = encode(params.get('dir'));
-                    let rootPath = encode(params.get('rootPath'));
-                    $.ajax({
-                        type: "GET",
-                        contentType: "application/json",
-                        url: "/comic/moveDir",
-                        data: {path: path, dir: dir, rootPath: rootPath},
-                        dataType: 'json',
-                        success: function (data) {
-                            if ($('.j-next').length > 0) {
-                                $('.j-next').get(0).click()
-                            } else if ($('.j-pre').length > 0) {
-                                $('.j-pre').get(0).click()
-                            } else {
-                                $('#goDir').get(0).click()
+    function moveDir(e, target) {
+        Swal.fire({
+            title: '移动',
+            text: '确认移动该目录下的所有文件!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: '确认',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#d33',
+            width: outter === '1' ? '80%' : undefined,
+
+            preConfirm: () => {
+                const params = new URLSearchParams(window.location.search);
+
+                const path = encode(params.get('path'));
+                const dir = encode(params.get('dir'));
+                let rootPath = encode(params.get('rootPath'));
+
+                return fetch(`/comic/moveDir?path=${path}&dir=${dir}&rootPath=${rootPath}`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
                             }
-                        },
-                        error: function (e) {
-                        }
-                    });
-                },
-                '取消': function () {
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('网络响应不正常');
+                            }
+                            return response.json();
+                        })
+                        .then(async (data) => {
+                            if (document.querySelectorAll('.j-next').length > 0) {
+                                const el = document.querySelector('.j-next');
+                                const rootPath = encode(el.dataset.rootPath);
+                                const dir = encode(el.dataset.dir);
+                                const path = encode(el.dataset.path);
 
-                }
+                                const data = await getPathInfo(rootPath, dir, path);
+                                repalceState(data, rootPath, dir, path);
+                            } else if (document.querySelectorAll('.j-pre').length > 0) {
+                                const el = document.querySelector('.j-pre');
+                                const rootPath = encode(el.dataset.rootPath);
+                                const dir = encode(el.dataset.dir);
+                                const path = encode(el.dataset.path);
+
+                                const data = await getPathInfo(rootPath, dir, path);
+                                repalceState(data, rootPath, dir, path);
+                            } else {
+                                const el = document.getElementById('goDir');
+                                const rootPath = encode(el.dataset.rootPath);
+                                const dir = encode(el.dataset.dir);
+                                const path = encode(el.dataset.path);
+
+                                const data = await getPathInfo(rootPath, dir, path);
+                                repalceState(data, rootPath, dir, path);
+                            }
+
+                            return data;
+                        })
+                        .catch(error => {
+                            console.error('删除失败:', error);
+                            Swal.showValidationMessage(`请求失败: ${error.message}`);
+                        });
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
             }
         });
     }
 
-    let currentRequestId = 0; // 任务令牌，点击按钮后停止加载img
-
-    // 辅助函数：构建 URL，避免重复代码
-    function buildUrl(basePath, params) {
-        const queryString = Object.keys(params)
-            // 【修改点 1】：移除 filter，或者只过滤 null/undefined，保留空字符串 ''
-            // 如果业务上连 null/undefined 都想变成空字符串显示，可以连 filter 都去掉，直接在 map 里处理
-            .filter(key => params[key] !== null && params[key] !== undefined)
-            .map(key => `${key}=${encode(params[key])}`)
-            .join('&');
-        return `${basePath}?${queryString}`;
-    }
-
-    function getPathInfo(rootPath, dir, path) {
-        // 显示加载状态（可选，提升体验）
-        $('#picList').html('<div class="loading">加载中...</div>');
-
-        $.ajax({
-            type: "GET",
-            contentType: "application/json",
-            url: "/comic/pic",
-            data: {path: path, dir: dir, rootPath: rootPath},
-            dataType: 'json',
-            success: function (data) {
-                renderNavigation(data, rootPath, dir, path);
-
-                if (typeof data.fileList !== "undefined" && data.fileList.length > 0) {
-                    startImageLoading(data.fileList, data.out, rootPath, dir, path);
-                } else {
-                    $('#picList').html('<div class="empty-tip">该目录下暂无图片</div>');
-                }
-
-                renderBottomNav(data, rootPath, dir);
-                applyOutterStyle(data.out);
-                bindEvents(rootPath, dir, path);
+    function pushState(data, rootPath, dir, path) {
+        // 1. 更新浏览器地址栏 (关键！让用户觉得真的跳转了，且能后退)
+        // 注意：这里不刷新页面，只是修改 URL
+        const newUrl = `./pics.html?path=${path}&rootPath=${rootPath}&dir=${dir}`;
+        window.history.pushState({
+                data,
+                rootPath,
+                dir,
+                path
             },
-            error: function (e) {
-                console.error("加载失败", e);
-                $('#picList').html('<div class="error-tip">加载失败，请重试</div>');
-            }
-        });
+            '', newUrl);
+    }
+
+    function repalceState(data, rootPath, dir, path) {
+        const newUrl = `./pics.html?path=${path}&rootPath=${rootPath}&dir=${dir}`;
+        window.history.replaceState({
+                data,
+                rootPath,
+                dir,
+                path
+            },
+            '', newUrl);
+    }
+
+    // 渲染数据提出来，给 onpopstate 用
+    function renderAllData(data, rootPath, dir, path) {
+        currentRequestId++;
+
+        // 第三步：此时 data 才是你真正想要的业务数据
+        renderNavigation(data, rootPath, dir, path);
+
+        if (data.fileList && data.fileList.length > 0) {
+            startImageLoading(data.fileList, data.out, rootPath, dir, path);
+        } else {
+            document.getElementById('picList').innerHTML = '<div class="empty-tip">该目录下暂无图片</div>';
+        }
+
+        renderBottomNav(data, rootPath, dir);
+        applyOutterStyle(data.out);
+
+        if (path) {
+            document.getElementsByTagName('title')[0].innerHTML = decode(path);
+        } else {
+            document.getElementsByTagName('title')[0].innerHTML = '图片';
+        }
+        document.getElementsByTagName('h1')[0].innerHTML = decode(path);
+    }
+
+    async function getPathInfo(rootPath, dir, path) {
+        // 用来给 popstate 渲染数据
+        // 显示加载状态（可选，提升体验）
+        const picList = document.getElementById('picList');
+        picList.innerHTML = '<div class="loading">加载中...</div>';
+
+        // 第一步：等待网络请求完成，拿到 Response 对象
+        const res = await fetch(`/comic/pic?path=${path}&dir=${dir}&rootPath=${rootPath}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+        // 【关键点】手动检查状态码（对应 .then 里的 if (!res.ok)）
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        // 第二步：手动解析 JSON（对应 return res.json()）
+        // 注意：res.json() 本身也是异步的，所以通常也要 await！
+        const data = await res.json();
+        renderAllData(data, rootPath, dir, path);
+
+        return data;
     }
 
     // --- 分离：渲染顶部导航 ---
     function renderNavigation(data, rootPath, dir, path) {
-        let parentName = getParentName(dir);
-        let pParentPath = getPParentPath(dir);
-        let html = ['<div class="follow-div">'];
+        const parentName = getParentName(decode(dir));
+        const parentPath = getParentPath(decode(dir));
 
-        // 目录按钮逻辑简化
+        // 1. 获取模板元素
+        const template = document.getElementById('tpl-dir-link');
+        // 3. 克隆模板内容 (true 表示深度克隆，包含子元素)
+        // content 是 DocumentFragment，包含 template 里的所有节点
+        const clone = template.content.cloneNode(true);
 
-        // 如果 dir 为空或已经是根，targetDir 保持空字符串
-        // 计算 targetDir 和 targetPath
-        let targetDir = '';
-        let targetPath = parentName; // 默认是 parentName
-
-        // 还原原来的逻辑判断
-        if (dir != null && dir !== '') {
-            if (parentName === pParentPath) {
-                // 对应原代码的 else if: path=parentName, dir= (空)
-                targetDir = '';
+        // 2. 计算数据 (你的逻辑保持不变)
+        const goDir = clone.querySelector('.btn-go-dir');
+        if (path) { // 计算 targetDir 和 targetPath
+            // 目录按钮，等价后退。dir、path参数后退一级，也就是dir移到path
+            let targetDir = '';
+            let targetPath = '';
+            if (dir) {
                 targetPath = parentName;
-            } else if (parentName !== pParentPath) {
-                // 对应原代码的 if: path=parentName, dir=pParentPath
-                targetDir = pParentPath;
-                targetPath = parentName;
+                if (parentName !== parentPath) {
+                    // 根下下...级目录
+                    targetDir = parentPath;
+                }
             }
+
+            // 4. 在克隆体里查找元素并填入数据
+            // 注意：要在 clone 里查，不要在 document 里查，因为还没上树
+            goDir.id = 'goDir';
+            goDir.href = 'javascript:void(0)';
+            goDir.dataset.rootPath = rootPath;
+            goDir.dataset.dir = encode(targetDir);
+            goDir.dataset.path = encode(targetPath);
+            goDir.setAttribute('lastPage', path);
+            // 如果文字也要变：goDir.textContent = '返回上级';
         } else {
-            // 对应原代码的 else: path= (空), dir= (空)
-            // 注意：原代码这里 path 也是空的
-            targetDir = '';
-            targetPath = '';
+            goDir.remove();
         }
 
-        // 生成链接
-        // 结果会是：./pics.html?path=xxx&rootPath=xxx&dir=yyy
-        // 或者：./pics.html?path=&rootPath=xxx&dir= (完美还原空值效果)
-        html.push(`<a id="goDir" lastPage="${path}" href="${buildUrl('./pics.html', {
-            path: targetPath,
-            rootPath: rootPath,
-            dir: targetDir
-        })}">目录</a>`);
-
-        if (typeof data.fileList !== "undefined" && data.fileList.length > 0) {
-            html.push('<div><a id="reversePics" href="javascript:void(0)" onclick="reversePics()">倒序</a></div>');
-        }
-        if (data.fName === '000') {
-            html.push('<div><a id="moveDir" href="javascript:void(0)" onclick="moveDir()">移动</a></div>');
+        const reversePics = clone.querySelector('.btn-reverse-pics');
+        if (data.fileList && data.fileList.length > 0) {
+            reversePics.id = 'reversePics';
+            reversePics.href = 'javascript:void(0)';
+            reversePics.dataset.action = 'reversePics';
+        } else {
+            reversePics.remove();
         }
 
-        html.push('<div><a id="delDir" href="javascript:void(0)" onclick="deleteDir()">删除</a></div></div>');
+        const moveDir = clone.querySelector('.btn-move-dir');
+        if (data.fName && data.fName === '000') {
+            moveDir.id = 'moveDir';
+            moveDir.href = 'javascript:void(0)';
+            moveDir.dataset.action = 'moveDir';
+        } else {
+            moveDir.remove();
+        }
 
-        // 上下章按钮
+        const delDir = clone.querySelector('.btn-del-dir');
+        delDir.id = 'delDir';
+        delDir.href = 'javascript:void(0)';
+        delDir.dataset.action = 'delDir';
+
+        const jpreEl = clone.querySelector('.a-j-pre');
+        const jpreBtn = clone.querySelector('.bt-j-pre');
         if (data.pre) {
-            html.push(`<a class="jump j-pre" data-j="${buildUrl('./pics.html', { path: data.pre, dir: dir, rootPath: rootPath })}"><button class="button mid pre">上一章</button></a>`);
-        }
-        if (data.next) {
-            html.push(`<a class="jump j-next" data-j="${buildUrl('./pics.html', { path: data.next, dir: dir, rootPath: rootPath })}"><button class="button mid next">下一章</button></a>`);
+            jpreEl.className = 'jump j-pre';
+            jpreEl.href = 'javascript:void(0)';
+            jpreEl.dataset.rootPath = rootPath;
+            jpreEl.dataset.dir = dir;
+            jpreEl.dataset.path = data.pre;
+            jpreBtn.className = 'button mid pre';
+        } else {
+            jpreEl.remove();
         }
 
-        // 文件夹列表 (优化点：移除无用的 style="next" div)
-        if (typeof data.dirList !== "undefined" && data.dirList.length > 0) {
+        const jnextEl = clone.querySelector('.a-j-next');
+        const jnextBtn = clone.querySelector('.bt-j-next');
+        if (data.next) {
+            jnextEl.className = 'jump j-next';
+            jnextEl.href = 'javascript:void(0)';
+            jnextEl.dataset.rootPath = rootPath;
+            jnextEl.dataset.dir = dir;
+            jnextEl.dataset.path = data.next;
+            jnextBtn.className = 'button mid next';
+        } else {
+            jnextEl.remove();
+        }
+
+        // 文件夹列表
+        if (data.dirList && data.dirList.length > 0) {
+            // 计算 targetDir 和 targetPath
+            // dir、path参数前进一级，也就是path移到dir
+            if (dir) {
+                targetDir = dir + '%2f' + path;
+            } else {
+                targetDir = path;
+            }
+
+            // 3. 创建新标签 (使用全局的 document 创建)
             data.dirList.forEach(item => {
-                html.push(`<div style="next"><a class="name" href="javascript:void(0)" data-p="${item}">${item}</a></div>`);
+                const newSpanDiv = document.createElement('div');
+                const newSpanA = document.createElement('a');
+                newSpanA.className = 'name';
+                newSpanA.dataset.rootPath = rootPath;
+                newSpanA.dataset.dir = targetDir;
+                newSpanA.dataset.path = item;
+                newSpanA.textContent = item;
+                newSpanA.href = 'javascript:void(0)';
+                newSpanDiv.appendChild(newSpanA);
+                // 4. 将新标签添加到 clone 里的父容器中
+                clone.appendChild(newSpanDiv);
             });
         }
 
-        $('#dirList').html(html.join(''));
+        // 5. 插入页面
+        const container = document.getElementById('dirList');
+        container.innerHTML = ''; // 清空
+        container.appendChild(clone);
     }
 
     // --- 分离：渲染底部导航 ---
     function renderBottomNav(data, rootPath, dir) {
-        let html = [];
+        const template = document.getElementById('tpl-dir2-link');
+        const clone = template.content.cloneNode(true);
+        const jpreEl = clone.querySelector('.a-j-pre');
+        const jpreBtn = clone.querySelector('.bt-j-pre');
+        const jnextEl = clone.querySelector('.a-j-next');
+        const jnextBtn = clone.querySelector('.bt-j-next');
+
         if (data.pre) {
-            html.push(`<a class="jump j-pre" data-j="${buildUrl('./pics.html', { path: data.pre, dir: dir, rootPath: rootPath })}"><button class="button mid">上一章</button></a>`);
+            jpreEl.className = 'jump j-pre';
+            jpreEl.href = 'javascript:void(0)';
+            jpreEl.dataset.rootPath = rootPath;
+            jpreEl.dataset.dir = dir;
+            jpreEl.dataset.path = data.pre;
+            jpreBtn.className = 'button mid pre';
+        } else {
+            jpreEl.remove();
         }
         if (data.next) {
-            html.push(`<a class="jump j-next" data-j="${buildUrl('./pics.html', { path: data.next, dir: dir, rootPath: rootPath })}"><button class="button mid">下一章</button></a>`);
+            jnextEl.className = 'jump j-next';
+            jnextEl.href = 'javascript:void(0)';
+            jnextEl.dataset.rootPath = rootPath;
+            jnextEl.dataset.dir = dir;
+            jnextEl.dataset.path = data.next;
+            jnextBtn.className = 'button mid next';
+        } else {
+            jnextEl.remove();
         }
-        $('#dirList2').html(html.join(''));
+        const container = document.getElementById('dirList2');
+        container.innerHTML = ''; // 清空
+        container.appendChild(clone);
     }
 
     // --- 分离：应用样式 ---
     function applyOutterStyle(out) {
         if (out === '1') {
-            $('#goDir, #delDir, #reversePics, #moveDir, #dirPath').addClass('aOut');
-            $('.button').addClass('buttonOut');
-            $('.name').addClass('dOut');
+            document.querySelectorAll('#goDir, #delDir, #reversePics, #moveDir, #dirPath, .name').forEach(el => {
+                el.classList.add('aOut');
+            });
+            document.querySelectorAll('.button').forEach(el => {
+                el.classList.add('buttonOut');
+            });
             window.outter = '1';
         }
     }
@@ -270,6 +495,8 @@
         let isLoading = false;
         const globalImageCache = {};
         let nextRenderIndex = 0;
+        // 标记所有批次是否已发起并完成加载
+        let allBatchesFinished = false;
 
         // 捕获当前的 Request ID，整个加载过程共享这个 ID
         const myRequestId = ++currentRequestId;
@@ -288,6 +515,21 @@
                 // 处理完这个索引，清理缓存，指针后移
                 delete globalImageCache[nextRenderIndex];
                 nextRenderIndex++;
+            }
+
+            // 【新增检查】如果所有图片都加载完了（通过外部标志位判断），且缓存空了（都渲染了）
+            // 所有批次都结束了
+            // ✅ 核心逻辑：检查是否所有图片都已渲染完毕
+            // 条件1：所有批次的网络请求都结束了 (allBatchesFinished)
+            // 条件2：缓存里没有剩余图片了 (说明都取出来了)
+            // 条件3：指针已经走到了数组末尾 (防御性检查)
+            if (allBatchesFinished &&
+                Object.keys(globalImageCache).length === 0 &&
+                nextRenderIndex >= allPaths.length) {
+                // 确保只执行一次
+                initCotent();
+                // 可选：重置标志位，防止重复调用（虽然逻辑上不会重复进入这里）
+                allBatchesFinished = false;
             }
         }
 
@@ -308,10 +550,10 @@
             }
 
             // 获取当前页面的 origin，用于构建绝对路径，防止相对路径解析歧义
-            const pageOrigin = window.location.origin;
+            // const pageOrigin = window.location.origin;
 
-            const currentDir = (typeof dir !== 'undefined' && dir) ? dir : '';
-            const currentPath = (typeof path !== 'undefined' && path) ? path : '';
+            const currentDir = (dir) ? dir.replaceAll('%2f', '/') : '';
+            const currentPath = (path) ? path.replaceAll('%2f', '/') : '';
 
             currentBatch.forEach((picPath, index) => {
                 // 计算全局绝对索引
@@ -324,14 +566,16 @@
                 if (currentDir && currentPath) relativePath += `${currentDir}/${currentPath}/`;
                 else if (currentPath) relativePath += `${currentPath}/`;
                 relativePath += picPath;
+                relativePath = relativePath.startsWith('/') ? relativePath : '/' + relativePath;
 
                 // 规范化 URL
                 // 确保路径以 / 开头，然后拼接 origin 变成绝对路径
                 // 例如：http://localhost:8080/images/1.jpg
                 // 绝对路径能避免浏览器对相对路径的多次解析尝试
-                let fullPath = pageOrigin + (relativePath.startsWith('/') ? relativePath : '/' + relativePath);
+                // let fullPath = pageOrigin + relativePath;
                 // 去除可能出现的双斜杠 (如 http://...//images)
-                fullPath = fullPath.replace(/([^:]\/)\/+/g, "$1");
+                // fullPath = fullPath.replace(/([^:]\/)\/+/g, '$1');
+                let fullPath = relativePath.replace(/([^:]\/)\/+/g, '$1');
 
                 // --- 定义处理函数 (带指纹锁) ---
                 // 使用 fullPath 作为指纹，确保即使函数被调用多次，也是针对同一个资源
@@ -381,8 +625,11 @@
                         if (batchIndex < allPaths.length) {
                             setTimeout(loadBatch, 50);
                         } else {
-                            // 所有批次都结束了
-                            initCotent();
+                            // ✅ 修改：不再直接调用 initCotent()
+                            // 而是标记“所有批次已结束”，然后尝试渲染
+                            // 剩下的交给 renderInOrder 里的判断逻辑去收尾
+                            allBatchesFinished = true;
+                            renderInOrder();
                         }
                     }
                 };
@@ -396,167 +643,241 @@
         loadBatch();
     }
 
-    // --- 分离：事件绑定 ---
-    function bindEvents(rootPath, dir, path) {
-        // 上下章点击
-        // 使用 .off('click').on('click') 防止事件重复绑定（如果 getPathInfo 被多次调用而不刷新页面）
-        $(".jump").off('click').on('click', function() {
-            // 1. 立即失效旧任务
-            currentRequestId++;
-            // 2. 视觉反馈：立即清空图片区，显示加载中
-            $('#picList').html('<div class="loading">正在跳转...</div>');
-            // 3. 跳转
-            window.location.href = $(this).data('j');
-        });
-
-        // 文件夹点击
-        $(".name").off('click').on('click', function() {
-            const subPath = $(this).data("p");
-            // 视觉反馈
-            $('#picList').html('<div class="loading">进入目录...</div>');
-
-            let rpath = (dir == null || dir === '') ? path : (dir + '\\' + path);
-
-            $.ajax({
-                type: "GET",
-                contentType: "application/json",
-                url: "/comic/pathInfo",
-                data: { path: encode(subPath), dir: encode(rpath) },
-                dataType: 'json',
-                success: function (data1) {
-                    // 这里不需要手动 ++currentRequestId，因为页面即将刷新或重新调用 getPathInfo
-                    // 如果是单页应用不刷新，则需要在这里 ++currentRequestId
-                    window.location.href = buildUrl('./pics.html', {
-                        path: data1.path,
-                        rootPath: rootPath,
-                        dir: data1.dir
-                    });
-                },
-                error: function (e) {
-                    $('#picList').html('<div class="error-tip">目录信息获取失败</div>');
-                }
-            });
-        });
-    }
-
     // 目录切换
-    function openDir() {
+    async function openDir() {
         // 1. 【🛑 立即让旧任务失效】
         // 只要这个值变了，上面所有正在加载的 img 的回调都会发现 ID 不匹配，从而自动停止工作
         currentRequestId++;
 
-        const val = encode($('#dirPath').val());
-        getPathInfo(val, null, null)
+        const val = encode(document.getElementById('dirPath').value);
+        const data = await getPathInfo(val, '', '');
+        pushState(data, val, '', '');
     }
 
     // 初始化页面
-    $(function (){
+    document.addEventListener('DOMContentLoaded', async function () {
         const params = new URLSearchParams(window.location.search);
         const path = encode(params.get('path'));
         const dir = encode(params.get('dir'));
         let rootPath = encode(params.get('rootPath'));
-        if (rootPath != null && rootPath !== "") {
-            rootPath = rootPath.replaceAll("/", "\\");
-            $('#dirPath').val(rootPath);
+        if (rootPath) {
+            rootPath = rootPath.replaceAll('/', '\\');
+            document.getElementById('dirPath').value = decode(rootPath);
         } else {
-            $('#dirPath').val('E:\\private\\pics');
-            rootPath = "E:\\private\\pics";
+            document.getElementById('dirPath').value = 'E:\\private\\pics';
+            rootPath = 'E:\\private\\pics';
         }
-        if (path != null && path !== '') {
-            $('h1').html(decode(path));
-            $('title').html(decode(path));
+        if (path) {
+            document.getElementsByTagName('title')[0].innerHTML = decode(path);
         } else {
-            $('h1').html(decode(dir));
         }
-        $('#dirPath').on('change', openDir);
-        getPathInfo(rootPath, dir, path);
+        document.getElementsByTagName('h1')[0].innerHTML = decode(path);
+        document.getElementById('dirPath').addEventListener('change', openDir);
+
+        const targetRootPath = encode(rootPath);
+        const data = await getPathInfo(targetRootPath, dir, path);
+        pushState(data, targetRootPath, dir, path);
     })
 
+    // 元素是否可见
+    function isVisible(element) {
+        if (!element) return false;
+
+        // 1. 检查 display: none
+        if (window.getComputedStyle(element).display === 'none') {
+            return false;
+        }
+
+        // 2. 检查 visibility: hidden
+        if (window.getComputedStyle(element).visibility === 'hidden') {
+            return false;
+        }
+
+        // 3. 检查 opacity: 0 (针对淡入淡出场景很重要)
+        if (parseFloat(window.getComputedStyle(element).opacity) === 0) {
+            return false;
+        }
+
+        // 4. 检查元素是否有宽高 (防止虽然设置了 display:block 但内容为空导致不可见)
+        const rect = element.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+            return false;
+        }
+
+        return true;
+    }
+
     // 图片加载后的方法
-    function initCotent(){
+    function initCotent() {
+        function showEl(e) {
+            const overlay = e.currentTarget.querySelector('.overlay');
+            if (canDown) {
+                timer = setTimeout(function () {
+                    canDown = false;
+                    // 确保先移除“彻底隐藏”的类（如果有）
+                    overlay.classList.remove('is-hidden-final');
+
+                    // 强制重绘 (可选，防止刚移除类就添加导致动画不触发)
+                    void overlay.offsetWidth;
+
+                    // 添加可见类，触发 CSS transition
+                    overlay.classList.add('is-visible');
+                    canUp = true;
+                }, 700)
+            }
+
+        }
+
+        function hideEL(e) {
+            const overlay = e.currentTarget.querySelector('.overlay');
+            if (canUp && !canDown) {
+                canUp = false;
+                setTimeout(function () {
+                    // 1. 移除可见类，开始淡出动画 (opacity 1 -> 0, visibility visible -> hidden)
+                    overlay.classList.remove('is-visible');
+
+                    // 2. 监听动画结束，彻底设为 display: none (模拟 jQuery 行为)
+                    // 使用 { once: true } 自动移除监听器，防止内存泄漏
+                    overlay.addEventListener('transitionend', function() {
+                        overlay.classList.add('is-hidden-final'); // 加上这个类后，display 变为 none
+                    }, { once: true });
+
+                    canDown = true;
+                }, 2300)
+            }
+
+            clearTimeout(timer);
+        }
+
         // 长按图片能删除图片
-        $('.img-container').on('mousedown', function (){
-            const t = $(this);
-            timer = setTimeout(function (){
-                t.find('.overlay').fadeIn(10);
-            }, 700)
+        document.querySelectorAll('.img-container').forEach(el => {
+            el.removeEventListener('mousedown', showEl );
+            el.addEventListener('mousedown', showEl);
+            el.removeEventListener('mouseup', hideEL);
+            el.addEventListener('mouseup', hideEL);
+            // 3. 【必须修改】加上这个，防止鼠标拖出去导致无法隐藏
+            el.addEventListener('mouseleave', hideEL);
+            el.removeEventListener('touchstart', showEl);
+            el.addEventListener('touchstart', showEl);
+            el.removeEventListener('touchend', hideEL);
+            el.addEventListener('touchend', hideEL);
         });
 
-        $('.img-container').on('mouseup', function (){
-            const t = $(this);
-            if ($(this).find('.overlay').is(':visible')) {
-                setTimeout(function () {
-                    t.find('.overlay').fadeOut(10);
-                }, 2300)
-            }
-            clearTimeout(timer);
-        })
+        function delThisPic(e) {
+            const src = encode(e.currentTarget.nextElementSibling.getAttribute('src'));
+            const parentNode = e.currentTarget.parentNode;
 
-        $('.img-container').on('touchstart', function (){
-            const t = $(this);
-            timer = setTimeout(function (){
-                t.find('.overlay').fadeIn(10);
-            }, 700)
-        });
-
-        $('.img-container').on('touchend', function (){
-            const t = $(this);
-            if ($(this).find('.overlay').is(':visible')) {
-                setTimeout(function () {
-                    t.find('.overlay').fadeOut(10);
-                }, 2300)
-            }
-            clearTimeout(timer);
-        });
-
-        // 删除图片
-        $('.overlay').on('click', function (){
-            const src = encode($(this).next().attr('src'));
-            const t = $(this);
-            $.confirm({
+            Swal.fire({
                 title: '删除',
-                content: '确认删除该图片!',
-                boxWidth: '400px',
-                useBootstrap: false,
-                onOpenBefore: function () {
-                    if (outter === '1') {
-                        $('.jconfirm-box').css('width', '80%');
-                        $('.jconfirm-buttons').css('width', '90%')
-                        $('.jconfirm-buttons button').css('width', '45%').css('height', '70px')
-                    }
-                },
-                buttons: {
-                    '确认': function () {
-                        const params = new URLSearchParams(window.location.search);
-                        let rootPath = encode(params.get('rootPath'));
-                        $.ajax({
-                            type: "GET",
-                            contentType: "application/json",
-                            url: "/comic/deletePic",
-                            data: {rootPath: rootPath, loc: src},
-                            dataType: 'json',
-                            success: function (data) {
-                                t.parent().remove();
-                            },
-                            error: function (e) {
-                            }
-                        });
-                    },
-                    '取消': function () {
+                text: '确认删除该图片!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '确认',
+                cancelButtonText: '取消',
+                confirmButtonColor: '#d33',
+                width: outter === '1' ? '80%' : undefined,
 
-                    }
+                preConfirm: () => {
+                    const params = new URLSearchParams(window.location.search);
+                    let rootPath = encode(params.get('rootPath'));
+
+                    return fetch(`/comic/deletePic?loc=${src}&rootPath=${encode(rootPath)}`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('网络响应不正常');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            parentNode.remove();
+                            return data;
+                        })
+                        .catch(error => {
+                            console.error('删除失败:', error);
+                            Swal.showValidationMessage(`请求失败: ${error.message}`);
+                        });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
                 }
             });
+
+        }
+
+        // 删除图片
+        document.querySelectorAll('.overlay').forEach(el => {
+            el.removeEventListener('click', delThisPic);
+            el.addEventListener('click', delThisPic);
         });
     }
 
-    // 再页面卸载时记录滚动位置
-    $(window).on('beforeunload', function (){
-        // 获取当前的滚动位置
-        const scrollPosition = $(window).scrollTop();
-        // 将滚动位置存储到localStorage
-        localStorage.setItem('scrollPosition', scrollPosition)
-    })
+    // 拦截所有内部链接点击 (事件委托)
+    document.addEventListener('click', async function(e) {
+        // 找到最近的 a 标签
+        const link = e.target.closest('a');
+
+        // 如果是内部跳转链接
+        if (link && !link.dataset.action) {
+            e.preventDefault(); // 🔥 阻止浏览器默认跳转
+
+            // 从 href 或 data 属性中提取参数
+            const rootPath = encode(link.dataset.rootPath);
+            const dir = encode(link.dataset.dir);
+            const path = encode(link.dataset.path);
+
+            // 调用我们的无刷新加载函数
+            const data = await getPathInfo(rootPath, dir, path);
+            pushState(data, rootPath, dir, path);
+            return;
+        }
+
+        // 1. 找到被点击的元素（或者它的父级，防止点到图标上）
+        const target = e.target.closest('[data-action]');
+
+        // 如果没有 data-action 属性，直接忽略（比如点到了空白处）
+        if (!target) return;
+
+        // 2. 阻止默认行为（如果是链接或表单提交）
+        // 注意：有些操作可能不需要阻止默认行为，视情况而定
+        if (target.tagName === 'A' || target.tagName === 'BUTTON') {
+            e.preventDefault();
+        }
+
+        // 3. 获取动作类型
+        const action = target.dataset.action;
+
+        // 4. 分发到对应函数 (像交换机一样)
+        switch (action) {
+            case 'reversePics':
+                reversePics(e, target);
+                break;
+            case 'moveDir':
+                moveDir(e, target);
+                break;
+            case 'delDir':
+                delDir(e, target);
+                break;
+
+            default:
+                console.warn('未知的动作:', action);
+        }
+    });
+
+    // 处理浏览器的“后退/前进”按钮
+    window.onpopstate = async function(event) {
+        if (event.state) {
+            // 直接从缓存拿数据，不用手动更新数据
+            renderAllData(event.state.data, event.state.rootPath, event.state.dir, event.state.path);
+        } else {
+            // 初始状态，加载根目录
+            await getPathInfo(encode('E:\\private\\pics'), '', '');
+        }
+    };
 
 </script>
 </html>

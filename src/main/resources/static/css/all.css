@@ -47,11 +47,34 @@ img {
 }
 
 .overlay {
+    /* --- 基础样式 (保持不变) --- */
     background-color: rgba(0, 0, 0, 0.5);
     font-size: 41px;
     color: dodgerblue;
     margin-top: 30px;
     margin-left: 30px;
     position: absolute;
-    display: none;
+
+    /* --- 关键修改部分 --- */
+
+    /* 1. 初始状态：隐藏 */
+    display: block;       /* ⚠️ 必须改为 block (或 flex/grid)，不能是 none，否则无法过渡 */
+    visibility: hidden;   /* 用 visibility 隐藏，元素还在但不可见且不可点击 */
+    opacity: 0;           /* 完全透明 */
+
+    /* 2. 定义过渡效果：当 opacity 或 visibility 变化时，执行动画 */
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+/* 3. 显示状态的类 (JS 添加这个类来淡入) */
+.overlay.is-visible {
+    visibility: visible;  /* 变为可见 */
+    opacity: 1;           /* 变为不透明 */
+    /* 注意：这里依然不要写 display: block，因为基础样式里已经是了 */
+}
+
+/* 4. 彻底移除类 (可选，用于动画结束后清理占位) */
+/* 如果你需要像 jQuery fadeOut 那样最后 display:none，需配合 JS 监听 transitionend 添加此类 */
+.overlay.is-hidden-final {
+    display: none !important;
 }

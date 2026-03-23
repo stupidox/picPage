@@ -1,0 +1,22 @@
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- 定义颜色变量 -->
+    <property name="LOG_PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %highlight(%-5level) %cyan(%logger{36}) - %msg%n"/>
+
+    <!-- 控制台输出 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- 使用 CDATA 包裹，防止特殊字符报错，同时开启彩色输出 -->
+            <pattern><![CDATA[${LOG_PATTERN}]]></pattern>
+        </encoder>
+    </appender>
+
+    <!-- 根日志级别：INFO (生产环境建议 INFO, 开发调试可改 DEBUG) -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+    <!-- 可选：单独设置某个包的级别，比如你的包 -->
+    <!-- <logger name="com.yourpackage" level="DEBUG" /> -->
+
+</configuration>

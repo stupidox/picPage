@@ -1,21 +1,23 @@
 function encode(str) {
-    if (str !== null && str !== "" && typeof(str) === 'string') {
+    if (str && typeof(str) === 'string') {
+        str = str.replaceAll('/', '\\');
         return str.replaceAll('\\', '%2f').replaceAll('[', '%5B').replaceAll(']', '%5D').replaceAll('+', '%2B')
             .replaceAll('&', '%26').replaceAll('▲', '%e2%96%b2').replaceAll('▼', '%e2%96%bc')
     }
-    return str
+    return ''
 }
 
 function decode(str) {
-    if (str !== null && str !== "" && typeof(str) === 'string') {
+    str = str.replaceAll('/', '\\');
+    if (str && typeof(str) === 'string') {
         return str.replaceAll('%2f', '\\').replaceAll('%5B', '[').replaceAll('%5D', ']').replaceAll('%2B', '+')
             .replaceAll('%26', '&').replaceAll('%e2%96%b2', '▲').replaceAll('%e2%96%bc', '▼')
     }
-    return str
+    return ''
 }
 
 function getParentName(str) {
-    if (str == null || str === '') {
+    if (!str) {
         return '';
     }
     str = str.replaceAll('/', '\\');
@@ -26,8 +28,8 @@ function getParentName(str) {
     return str;
 }
 
-function getPParentPath(str) {
-    if (str == null || str === '') {
+function getParentPath(str) {
+    if (!str) {
         return '';
     }
     str = str.replaceAll('/', '\\');

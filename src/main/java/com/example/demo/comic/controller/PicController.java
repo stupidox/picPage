@@ -1,6 +1,7 @@
 package com.example.demo.comic.controller;
 
 import com.example.demo.config.Constants;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 
 @RestController()
 @RequestMapping("/comic")
+@Slf4j
 public class PicController {
 
     @GetMapping("/list")
@@ -64,16 +66,30 @@ public class PicController {
             if (Objects.nonNull(dirList)) {
                 sort(dirList);
                 map.put("dirList", dirList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
+
             }
-            if (Objects.nonNull(picList)) {
+            if (Objects.nonNull(picList) && picList.size() > 0) {
                 picList = picList.stream().filter(file -> Constants.isPicture(file.getName())).collect(Collectors.toList());
-                sort(picList);
-                map.put("fileList", picList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
+                if (picList.size() > 0) {
+                    sort(picList);
+                    map.put("fileList", picList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
+
+                    // moveDir使用字段
+                    try {
+                        File[] parentFile = picList.get(0).getParentFile().getParentFile().listFiles();
+                        if (Objects.nonNull(parentFile) && parentFile.length > 1) {
+                            map.put("fName", parentFile[0].getName());
+                        }
+                    } catch (Exception e) {
+                        log.error(e.getMessage(), e);
+                    }
+                }
             }
         }
 
         // 子目录的上下章
-        if (StringUtils.hasLength(finalDir)) {
+        // 修改逻辑：图片页面的上下章
+        if (Objects.nonNull(map.get("fileList"))) {
             List<File> pDir = Arrays.asList(Objects.requireNonNull(Objects.requireNonNull(d.getParentFile()).listFiles()));
             String name = d.getName();
             pDir = pDir.stream().filter(File::isDirectory).collect(Collectors.toList());
@@ -90,11 +106,6 @@ public class PicController {
             }
             if (j + 1 < pDir.size()) {
                 map.put("next", pDir.get(j + 1).getName());
-            }
-
-            // moveDir使用字段
-            if (pDir.size() > 0) {
-                map.put("fName", pDir.get(0).getName());
             }
         }
 
@@ -127,7 +138,7 @@ public class PicController {
         try {
             deleteDirectory(directoryPath);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(e.getMessage(), e);
         }
         return map;
     }
@@ -142,7 +153,7 @@ public class PicController {
         try {
             Files.delete(picPath);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error(e.getMessage(), e);
         }
         return map;
     }

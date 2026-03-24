@@ -7,9 +7,9 @@
 <body>
     <h1 style="text-align: center"></h1>
     <select id="dirPath" placeholder="文件夹...">
-        <option value="E:\private\pics">E:\private\pics</option>
-        <option value="D:\private\pictures">D:\private\pictures</option>
-        <option value="F:\aiPics">F:\aiPics</option>
+        <option value="pics">E:盘</option>
+        <option value="pictures">D盘</option>
+        <option value="aiPics">F盘</option>
     </select>
     <div id="dirList"></div>
     <div id="picList"></div>
@@ -57,6 +57,9 @@
     let currentRequestId = 0; // 任务令牌，点击按钮后停止加载img
     let canDown = true;
     let canUp = false;
+    // 文件映射
+    const fileMap = '/files/';
+
     // 设置键盘翻页
     document.addEventListener('keyup', function (event) {
         if (event.code === '37') {
@@ -131,6 +134,9 @@
                             return response.json();
                         })
                         .then(async(data) => {
+                            if (!data.ok || data.ok !== '1') {
+                                return data;
+                            }
                             // 成功回调逻辑
                             // 模拟原代码的按钮点击逻辑
                             if (document.querySelectorAll('.j-next').length > 0) {
@@ -435,6 +441,7 @@
         if (data.dirList && data.dirList.length > 0) {
             // 计算 targetDir 和 targetPath
             // dir、path参数前进一级，也就是path移到dir
+            let targetDir = '';
             if (dir) {
                 targetDir = dir + '%2f' + path;
             } else {
@@ -619,8 +626,7 @@
                     // 绝对路径能避免浏览器对相对路径的多次解析尝试
                     // let fullPath = pageOrigin + relativePath;
                     // 去除可能出现的双斜杠 (如 http://...//images)
-                    // fullPath = fullPath.replace(/([^:]\/)\/+/g, '$1');
-                    let fullPath = relativePath.replace(/([^:]\/)\/+/g, '$1');
+                    let fullPath = fileMap + rootPath + relativePath.replace(/([^:]\/)\/+/g, '$1');
 
                     // --- 定义处理函数 (带指纹锁) ---
                     // 使用 fullPath 作为指纹，确保即使函数被调用多次，也是针对同一个资源
@@ -710,8 +716,8 @@
             rootPath = rootPath.replaceAll('/', '\\');
             document.getElementById('dirPath').value = decode(rootPath);
         } else {
-            document.getElementById('dirPath').value = 'E:\\private\\pics';
-            rootPath = 'E:\\private\\pics';
+            document.getElementById('dirPath').value = 'pics';
+            rootPath = 'pics';
         }
         if (path) {
             document.getElementsByTagName('title')[0].innerHTML = decode(path);
@@ -840,7 +846,9 @@
                             return response.json();
                         })
                         .then(data => {
-                            parentNode.remove();
+                            if (data.ok && data.ok === '1') {
+                                parentNode.remove();
+                            }
                             return data;
                         })
                         .catch(error => {
@@ -924,7 +932,7 @@
             await renderAllData(event.state.data, event.state.rootPath, event.state.dir, event.state.path);
         } else {
             // 初始状态，加载根目录
-            await getPathInfo(encode('E:\\private\\pics'), '', '');
+            await getPathInfo(encode('pics'), '', '');
         }
 
         // 滚轮到之前位置

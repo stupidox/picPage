@@ -21,6 +21,7 @@ public class MyWebMvcConfigurer implements WebMvcConfigurer {
         this.parameterInterceptor = parameterInterceptor;
         this.webpInterceptor = webpInterceptor;
     }
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(parameterInterceptor);
@@ -38,6 +39,18 @@ public class MyWebMvcConfigurer implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        WebMvcConfigurer.super.addResourceHandlers(registry);
+        // 将 E:\private\pics 映射到 /files/ 或其他路径
+        registry.addResourceHandler(PathConfig.E_PICS_MAP_PATH + "**")
+                .addResourceLocations(
+                        "file:" + PathConfig.E_PICS
+                );
+        registry.addResourceHandler(PathConfig.D_PICS_MAP_PATH + "**")
+                .addResourceLocations(
+                        "file:" + PathConfig.D_PICS
+                );
+        registry.addResourceHandler(PathConfig.F_PICS_MAP_PATH + "**")
+                .addResourceLocations(
+                        "file:" + PathConfig.F_PICS
+                );
     }
 }

@@ -1,6 +1,8 @@
 package com.example.demo.comic.controller;
 
 import com.example.demo.config.Constants;
+import com.example.demo.config.PathConfig;
+import com.example.demo.utils.R;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,8 +26,9 @@ public class PicController {
 
     @GetMapping("/list")
     public Map<String, Object> getPicList(HttpServletRequest request,@RequestParam String rootPath) {
+        R r = R.ok();
         rootPath = Constants.decode(rootPath);
-        Map<String, Object> map = new HashMap<>();
+        rootPath = PathConfig.getPhysicalPath(rootPath);
         File list = new File(rootPath);
         File[] files = list.listFiles();
         List<String> names = new ArrayList<>();
@@ -34,18 +37,19 @@ public class PicController {
                 names.add(file.getName());
             }
         }
-        map.put("out", Constants.getIpAddress(request).equals("0:0:0:0:0:0:0:1") || Constants.getIpAddress(request).equals("127.0.0.1")
+        r.put("out", Constants.getIpAddress(request).equals("0:0:0:0:0:0:0:1") || Constants.getIpAddress(request).equals("127.0.0.1")
                 ? "0" : "1");
-        map.put("data", names.toArray(new String[0]));
-        return map;
+        r.put("data", names.toArray(new String[0]));
+        return r.toMap();
     }
 
     @GetMapping("/pic")
     public Map<String, Object> getPic(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String path, @RequestParam String dir) {
+        R r = R.ok();
         String finalRootPath = Constants.decode(rootPath);
         String finalPath = Constants.decode(path);
         String finalDir = Constants.decode(dir);
-        Map<String, Object> map = new HashMap<>();
+        finalRootPath = PathConfig.getPhysicalPath(finalRootPath);
         File d;
         if (!StringUtils.isBlank(finalPath)) {
             d = new File(finalRootPath + File.separator + finalDir + File.separator + finalPath);
@@ -65,20 +69,20 @@ public class PicController {
             List<File> picList = fileGroup.get(false);
             if (Objects.nonNull(dirList)) {
                 sort(dirList);
-                map.put("dirList", dirList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
+                r.put("dirList", dirList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
 
             }
             if (Objects.nonNull(picList) && picList.size() > 0) {
                 picList = picList.stream().filter(file -> Constants.isPicture(file.getName())).collect(Collectors.toList());
                 if (picList.size() > 0) {
                     sort(picList);
-                    map.put("fileList", picList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
+                    r.put("fileList", picList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
 
                     // moveDir使用字段
                     try {
                         File[] parentFile = picList.get(0).getParentFile().getParentFile().listFiles();
                         if (Objects.nonNull(parentFile) && parentFile.length > 1) {
-                            map.put("fName", parentFile[0].getName());
+                            r.put("fName", parentFile[0].getName());
                         }
                     } catch (Exception e) {
                         log.error(e.getMessage(), e);
@@ -89,7 +93,7 @@ public class PicController {
 
         // 子目录的上下章
         // 修改逻辑：图片页面的上下章
-        if (Objects.nonNull(map.get("fileList"))) {
+        if (Objects.nonNull(r.get("fileList"))) {
             List<File> pDir = Arrays.asList(Objects.requireNonNull(Objects.requireNonNull(d.getParentFile()).listFiles()));
             String name = d.getName();
             pDir = pDir.stream().filter(File::isDirectory).collect(Collectors.toList());
@@ -102,16 +106,16 @@ public class PicController {
                 }
             }
             if (j - 1 >= 0) {
-                map.put("pre", pDir.get(j - 1).getName());
+                r.put("pre", pDir.get(j - 1).getName());
             }
             if (j + 1 < pDir.size()) {
-                map.put("next", pDir.get(j + 1).getName());
+                r.put("next", pDir.get(j + 1).getName());
             }
         }
 
-        map.put("out", Constants.getIpAddress(request).equals("0:0:0:0:0:0:0:1") || Constants.getIpAddress(request).equals("127.0.0.1")
+        r.put("out", Constants.getIpAddress(request).equals("0:0:0:0:0:0:0:1") || Constants.getIpAddress(request).equals("127.0.0.1")
                 ? "0" : "1");
-        return map;
+        return r.toMap();
     }
 
     public static void deleteDirectory(Path path) throws IOException {
@@ -129,42 +133,57 @@ public class PicController {
     @GetMapping("/deleteDir")
     public Map<String, Object> deleteDir(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String path,
                                          @RequestParam String dir) {
+        R r = R.ok();
         String finalRootPath = Constants.decode(rootPath);
         String finalPath = Constants.decode(path);
         String finalDir = Constants.decode(dir);
-        Map<String, Object> map = new HashMap<>();
+        finalRootPath = PathConfig.getPhysicalPath(finalRootPath);
         File file = new File(finalRootPath + File.separator + finalDir + File.separator + finalPath);
         Path directoryPath = Paths.get(file.getAbsolutePath());
         try {
             deleteDirectory(directoryPath);
+            r.put("ok", "1");
         } catch (IOException e) {
             log.error(e.getMessage(), e);
         }
-        return map;
+        return r.toMap();
     }
 
     @GetMapping("/deletePic")
-    public Map<String, Object> deletePic(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String loc) {
-        String finalRootPath = Constants.decode(rootPath);
-        String finalLoc = Constants.decode(loc);
-        Map<String, Object> map = new HashMap<>();
-        File file = new File(finalRootPath + File.separator + finalLoc);
-        Path picPath = Paths.get(file.getAbsolutePath());
-        try {
-            Files.delete(picPath);
-        } catch (IOException e) {
-            log.error(e.getMessage(), e);
+    public Map<String, Object> deletePic(HttpServletRequest request, @RequestParam String loc) {
+        R r = R.ok();
+        if (!StringUtils.isBlank(loc)) {
+            String finalLoc = Constants.decode(loc);
+            finalLoc = finalLoc.replaceAll("\\\\", "/");
+            String absolutePath = PathConfig.getAbsolutePath(finalLoc);
+            if (StringUtils.isBlank(absolutePath)) {
+                log.warn("文件路径错误: {}", loc);
+                return R.error().toMap();
+            }
+            File file = new File(absolutePath);
+            Path picPath = Paths.get(file.getAbsolutePath());
+            try {
+                Files.delete(picPath);
+                r.put("ok", "1");
+            } catch (IOException e) {
+                log.error(e.getMessage(), e);
+                return R.error().toMap();
+            }
+        } else {
+            log.warn("文件路径错误: {}", loc);
+            return R.error().toMap();
         }
-        return map;
+        return r.toMap();
     }
 
     @GetMapping("/moveDir")
     public Map<String, Object> moveDir(HttpServletRequest request, @RequestParam String rootPath, @RequestParam String path,
                                        @RequestParam String dir) {
+        R r = R.ok();
         String finalRootPath = Constants.decode(rootPath);
         String finalPath = Constants.decode(path);
         String finalDir = Constants.decode(dir);
-        Map<String, Object> map = new HashMap<>();
+        finalRootPath = PathConfig.getPhysicalPath(finalRootPath);
         File newDirDest = new File(finalRootPath + File.separator + finalDir + File.separator + "000");
         File originFile = new File(finalRootPath + File.separator + finalDir + File.separator + finalPath);
 
@@ -174,17 +193,7 @@ public class PicController {
         File lastFile = list.get(list.size() - 1);
         File newDir = new File(lastFile.getParent(), String.format("%03d", Integer.parseInt(lastFile.getName()) + 1));
         originFile.renameTo(newDir);
-        return map;
-    }
-
-    @GetMapping ("/pathInfo")
-    public Map<String, Object> getPathInfo(String path, String dir) {
-        path = Constants.decode(path);
-        dir = Constants.decode(dir);
-        Map<String, Object> map = new HashMap<>();
-        map.put("path", path);
-        map.put("dir", !StringUtils.isBlank(dir) ? dir : "");
-        return map;
+        return r.toMap();
     }
 
     public void sort(List<File> list) {

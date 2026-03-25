@@ -14,9 +14,18 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.Collator;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController()
@@ -25,7 +34,7 @@ import java.util.stream.Collectors;
 public class PicController {
 
     @GetMapping("/list")
-    public Map<String, Object> getPicList(HttpServletRequest request,@RequestParam String rootPath) {
+    public Map<String, Object> getPicList(HttpServletRequest request, @RequestParam String rootPath) {
         R r = R.ok();
         rootPath = Constants.decode(rootPath);
         rootPath = PathConfig.getPhysicalPath(rootPath);
@@ -60,19 +69,19 @@ public class PicController {
         }
         String rPath = d.getAbsolutePath() + File.separator;
         File[] fileList = d.listFiles();
-        if (Objects.nonNull(fileList)) {
+        if (fileList != null) {
             // 目录和文件分类
             Map<Boolean, List<File>> fileGroup = Arrays.stream(fileList).collect(Collectors.groupingBy(
                     File::isDirectory
             ));
             List<File> dirList = fileGroup.get(true);
             List<File> picList = fileGroup.get(false);
-            if (Objects.nonNull(dirList)) {
+            if (dirList != null) {
                 sort(dirList);
                 r.put("dirList", dirList.stream().map(file -> file.getAbsolutePath().replace(rPath, "")).toArray());
 
             }
-            if (Objects.nonNull(picList) && picList.size() > 0) {
+            if (picList != null && picList.size() > 0) {
                 picList = picList.stream().filter(file -> Constants.isPicture(file.getName())).collect(Collectors.toList());
                 if (picList.size() > 0) {
                     sort(picList);
@@ -81,7 +90,7 @@ public class PicController {
                     // moveDir使用字段
                     try {
                         File[] parentFile = picList.get(0).getParentFile().getParentFile().listFiles();
-                        if (Objects.nonNull(parentFile) && parentFile.length > 1) {
+                        if (parentFile != null && parentFile.length > 1) {
                             r.put("fName", parentFile[0].getName());
                         }
                     } catch (Exception e) {
@@ -93,8 +102,22 @@ public class PicController {
 
         // 子目录的上下章
         // 修改逻辑：图片页面的上下章
-        if (Objects.nonNull(r.get("fileList"))) {
-            List<File> pDir = Arrays.asList(Objects.requireNonNull(Objects.requireNonNull(d.getParentFile()).listFiles()));
+        if (r.get("fileList") != null) {
+            // 1. 获取父目录
+            File parent = d.getParentFile();
+            if (parent == null) {
+                throw new IllegalStateException("当前文件 " + d + " 没有父目录（可能是根目录）");
+            }
+
+            // 2. 获取文件列表数组
+            File[] filesArray = parent.listFiles();
+            if (filesArray == null) {
+                // listFiles() 返回 null 通常意味着：目录不存在、不是目录、或无权限读取
+                throw new IllegalStateException("无法读取目录 " + parent + " 的内容（可能无权限或路径无效）");
+            }
+
+            // 3. 转为 List
+            List<File> pDir = Arrays.asList(filesArray);
             String name = d.getName();
             pDir = pDir.stream().filter(File::isDirectory).collect(Collectors.toList());
             sort(pDir);

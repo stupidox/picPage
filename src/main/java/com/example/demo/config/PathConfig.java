@@ -14,19 +14,19 @@ public class PathConfig {
     // 定义映射关系：Key 是前端的 value，Value 是真实的物理路径
     private static final Map<String, String> DIR_MAPPING = new HashMap<>();
     public static final String E_PICS = "E:/private/pics/";
-    public static final String D_PICS = "D:/private/pictures/";
-    public static final String F_PICS = "F:/aiPics/";
     public static final String E_PICS_MAP = "pics";
-    public static final String D_PICS_MAP = "pictures";
-    public static final String F_PICS_MAP = "aiPics";
     public static final String E_PICS_MAP_PATH = "/files/pics/";
+    public static final String D_PICS = "D:/private/pictures/";
+    public static final String D_PICS_MAP = "pictures";
     public static final String D_PICS_MAP_PATH = "/files/pictures/";
+    public static final String F_PICS = "F:/aiPics/";
+    public static final String F_PICS_MAP = "aiPics";
     public static final String F_PICS_MAP_PATH = "/files/aiPics/";
 
     static {
         DIR_MAPPING.put(E_PICS_MAP, E_PICS);
-        DIR_MAPPING.put(F_PICS_MAP, D_PICS);
-        DIR_MAPPING.put(D_PICS_MAP, F_PICS);
+        DIR_MAPPING.put(D_PICS_MAP, D_PICS);
+        DIR_MAPPING.put(F_PICS_MAP, F_PICS);
         DIR_MAPPING.put(E_PICS_MAP_PATH, E_PICS);
         DIR_MAPPING.put(D_PICS_MAP_PATH, D_PICS);
         DIR_MAPPING.put(F_PICS_MAP_PATH, F_PICS);

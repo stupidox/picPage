@@ -14,7 +14,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.Objects;
 
 @Component
 @Slf4j
@@ -84,7 +83,7 @@ public class WebpInterceptor implements HandlerInterceptor {
             }
         }
 
-        if (Objects.isNull(inputStream)) {
+        if (inputStream == null) {
             // 没找到文件，放行（让 Spring 默认处理 404 或静态资源）
             return true;
         }

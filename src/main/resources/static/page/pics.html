@@ -5,12 +5,14 @@
     <title>图片</title>
 </head>
 <body>
-    <h1 style="text-align: center"></h1>
-    <select id="dirPath" placeholder="文件夹...">
+    <!-- 定义一个 label，for 属性指向 select 的 id -->
+    <label for="dirPath">选择文件夹：</label>
+    <select id="dirPath">
         <option value="pics">E:盘</option>
         <option value="pictures">D盘</option>
         <option value="aiPics">F盘</option>
     </select>
+    <h1 style="text-align: center"></h1>
     <div id="dirList"></div>
     <div id="picList"></div>
     <div id="dirList2"></div>
